@@ -18,33 +18,16 @@ def time_to_str(time:datetime.datetime) -> str:
 def make_signature(encode_header:str, encode_payload:str) -> str:
     return hash_encode(f"{encode_header}.{encode_payload}.{Token.secret_key}")
 
-def is_vaild(token:str, time_ckeck=False):
-    encode_header, encode_payload, signature = token.split(".")
-    if make_signature(encode_header, encode_payload) != signature:
-        raise "토큰 변조됨"
-    payload = base_decode(encode_payload)
-    payload:dict = eval(payload)
-    if time_ckeck:
-        if not "iat" in payload:
-            raise "claim 없음 -> iat"
-        if not "typ" in payload:
-            raise "claim 없음 -> typ"
-        if payload["typ"] == "access_token":
-            token_time = Token.access_token_time
-        elif payload["typ"] == "refresh_token":
-            token_time = Token.refresh_token_time
-        else:
-            raise "typ 오류"
-        time = time_now()
-        iat_time = str_to_time(payload["iat"])
-        if (time - iat_time).seconds > token_time:
-            raise "token time out"
-    return payload
 
 class Token():
     secret_key = "dgfgdg"
     access_token_time = 6000
     refresh_token_time = 360000
+
+    def __new__(cls):
+        if hasattr(cls, "_instance"):
+            cls.instance = super().__new__(cls)
+        return cls.instance
 
     def create(**kwarg) -> str:
         header = {
@@ -61,6 +44,29 @@ class Token():
         signature = make_signature(encode_header, encode_payload)
         return f"{encode_header}.{encode_payload}.{signature}"
     
+    def is_vaild(token:str, time_ckeck=False):
+        encode_header, encode_payload, signature = token.split(".")
+        if make_signature(encode_header, encode_payload) != signature:
+            raise "토큰 변조됨"
+        payload = base_decode(encode_payload)
+        payload:dict = eval(payload)
+        if time_ckeck:
+            if not "iat" in payload:
+                raise "claim 없음 -> iat"
+            if not "typ" in payload:
+                raise "claim 없음 -> typ"
+            if payload["typ"] == "access_token":
+                token_time = Token.access_token_time
+            elif payload["typ"] == "refresh_token":
+                token_time = Token.refresh_token_time
+            else:
+                raise "typ 오류"
+            time = time_now()
+            iat_time = str_to_time(payload["iat"])
+            if (time - iat_time).seconds > token_time:
+                raise "token time out"
+        return payload
+        
     
     def set_access_token_time(second:int):
         Token.access_token_time = second
@@ -71,4 +77,4 @@ class Token():
         
 token = (Token.create(typ="access_token"))
 print(token)
-print(is_vaild(token, time_ckeck=True))
+print(Token.is_vaild(token, time_ckeck=True))
